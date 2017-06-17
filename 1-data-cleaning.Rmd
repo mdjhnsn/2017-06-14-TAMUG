@@ -1,0 +1,295 @@
+---
+title: "TAMUG Data Cleaning"
+author: 'Author: Michael Johnson'
+date: 'Last Modified: `r Sys.time()`'
+output:
+  word_document: default
+  html_notebook: default
+  pdf_document: default
+  html_document: default
+---
+
+## Housekeeping 
+
+```{r setup, message=FALSE, error=FALSE, warning=FALSE, comment=NA}
+# Clear workspace
+rm(list = ls())
+
+# Load libraries
+library(tidyverse); library(readxl); library(forcats); library(stringr); library(RColorBrewer)
+
+# Set global options
+knitr::opts_knit$set(root.dir = "~/GitHub/2017-06-14-TAMUG/")
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, error=FALSE, 
+                      warning=FALSE, comment=NA,
+                      fig.width = 6, fig.height = 4)
+thm <- theme_classic()
+scl <- scale_fill_manual(values = c(
+  "#004056", # dark blue
+  "#00D0A3", # light green
+  "#0093CA", # light blue
+  "#009B78", # dark green
+  "#E7877C", # light red
+  "#939393", # medium gray
+  "#B62D0F", # dark red
+  "#C9C9C9", # light gray
+  "#0682AB", # medium blue
+  "#009B78", # medium green
+  "#5C5C5C", # dark gray
+  "#45BC9C" # another light green
+  )) 
+
+```
+
+## APPLICANTS
+
+### Load applicants data
+
+```{r applicants}
+# Load files
+app <- list(app15 = read_excel("data/enrollment/GV_Applicant_2015.xlsx", 
+                               sheet = "Export Worksheet",
+                               col_types = rep("text", 29)) %>% 
+              add_column(YEAR = "2015"),
+            app16 = read_excel("data/enrollment/GV_Applicant_2016.xlsx", 
+                               sheet = "Export Worksheet",
+                               col_types = rep("text", 29)) %>% 
+              add_column(YEAR = "2016"),
+            app17 = read_excel("data/enrollment/GV_Applicant_2017.xlsx", 
+                               sheet = "Export Worksheet",
+                               col_types = rep("text", 29)) %>% 
+              add_column(YEAR = "2017")) %>%
+  # Combine multiple years and label data source (note: column names are identical)
+  bind_rows() %>% add_column(DATASET = "Applicants") %>% 
+  rename(SOURCE = SOURCE1, # Rename to match other datasets
+         ADDRESS = ADDR_LINE_1, 
+         TERM = APTERM,
+         HS_CODE = HS_CD) %>% 
+  select(-ADDR_LINE_2, -APPLEVEL, -APPCOLL) %>% # Dont need second address line
+  mutate(ZIP = str_sub(ZIP, 1, 5), # Don't need second set of digits
+         HIGHEST_SAT = as.integer(HIGHEST_SAT),
+         HIGHEST_ACT = as.integer(HIGHEST_ACT),
+         HS_PERCENTILE = as.integer(HS_PERCENTILE),
+         HS_DECILE = cut(HS_PERCENTILE, breaks = 10, na.rm = T),
+         STATUS = if_else(!is.na(FIRST_ENROLL_TERM), "Enrolled", "Applicant"))
+
+# Deduplicate
+app <- distinct(app, TNUM, UIN, PIDM, .keep_all = T)
+
+```
+
+### Explore applicants data
+
+```{r}
+# Year/status
+xtabs( ~ STATUS + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = STATUS)) + geom_bar() + scl + thm
+
+# App number
+xtabs( ~ APNO + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = APNO)) + geom_bar() + scl + thm
+
+# Decision
+xtabs( ~ DECISION + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = DECISION)) + geom_bar() + thm
+
+# First enrolled term
+xtabs( ~ TERM + FIRST_ENROLL_TERM, data = app)
+ggplot(app, aes(x = FIRST_ENROLL_TERM, fill = TERM)) + geom_bar() + scl + thm
+
+# Last enrolled term
+xtabs( ~ TERM + LAST_ENROLL_TERM, data = app)
+ggplot(app, aes(x = YEAR, fill = LAST_ENROLL_TERM)) + geom_bar() + scl + thm
+
+# Application term
+xtabs( ~ TERM + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = TERM)) + geom_bar() + scl + thm
+
+# Department
+xtabs( ~ APPDEPT + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = APPDEPT)) + geom_bar() + scl + thm
+
+# Major
+xtabs( ~ APPMJR + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = APPMJR)) + geom_bar() + scl + thm
+
+# Student type
+xtabs( ~ APPTYPE + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = APPTYPE)) + geom_bar() + scl + thm
+
+# State
+xtabs( ~ STATE + YEAR, data = app)
+
+# State code?? - mostly same values, possibly ignore
+xtabs( ~ APSTCODE + YEAR, data = app)
+
+# SAT score
+ggplot(app, aes(HIGHEST_SAT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+# ACT score
+ggplot(app, aes(HIGHEST_ACT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+# Academic decile
+ggplot(app, aes(HS_DECILE, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+# Academic characteristics - medians
+app %>% select(YEAR, HIGHEST_SAT, HIGHEST_ACT, HS_PERCENTILE) %>% group_by(YEAR) %>% summarise_all(median, na.rm = T)
+
+```
+
+
+## INQUIRIES
+
+### Load inquiries data
+
+```{r inquiries}
+# Load files
+inq <- list(inq15 = read_excel("data/enrollment/GV_Recruit_2015.xlsx", 
+                                   sheet = "Export Worksheet") %>% add_column(YEAR = "2015"),
+              inq16 = read_excel("data/enrollment/GV_Recruit_2016.xlsx", 
+                                   sheet = "Export Worksheet") %>% add_column(YEAR = "2016"),
+              inq17 = read_excel("data/enrollment/GV_Recruit_2017.xlsx", 
+                                   sheet = "Export Worksheet") %>% add_column(YEAR = "2017")) %>% 
+  # Combine multiple years and label data source (note: column names are identical)
+  bind_rows() %>% add_column(DATASET = "Inquiries") %>%
+  rename(PREV_COLL_CD = PREV_COLL_NAME, # Rename to match other dataset
+         PREV_COLL_NAME = PREV_COLL_NAME_1,
+         ADDRESS = ADDRESS_LINE_1) %>% 
+  select(-ADDRESS_LINE_2) %>% # Don't need second line of address (mostly blank)
+  mutate(ZIP = str_sub(ZIP, 1, 5), # Only need first 5 digits of zip
+         STATUS = "Inquiry",
+         HIGHEST_SAT = as.integer(HIGHEST_SAT),
+         HIGHEST_ACT = as.integer(HIGHEST_ACT),
+         HS_PERCENTILE = as.integer(HS_PERCENTILE),
+         HS_DECILE = cut(HS_PERCENTILE, 
+                       breaks = 10, na.rm = T))
+
+
+# Deduplicate
+inq <- distinct(inq, TNUM, UIN, .keep_all = T)
+
+```
+
+### Explore inquiries data
+
+```{r}
+# Year
+xtabs( ~ YEAR, data = inq)
+ggplot(inq, aes(YEAR)) + geom_bar() + thm
+
+# Term
+xtabs( ~ TERM + YEAR, data = inq)
+ggplot(inq, aes(x = YEAR, fill = TERM)) + geom_bar() + thm + scl
+
+# State
+xtabs( ~ STATE + YEAR, data = inq)
+
+# Academic characteristics - medians
+inq %>% select(YEAR, HIGHEST_SAT, HIGHEST_ACT, HS_PERCENTILE) %>% group_by(YEAR) %>% summarise_all(median, na.rm = T)
+
+# SAT
+ggplot(inq, aes(HIGHEST_SAT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+# ACT
+ggplot(inq, aes(HIGHEST_ACT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+# High school percentile
+ggplot(inq, aes(HS_DECILE, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+```
+
+## PROSPECTS
+
+### Load prospects data
+
+```{r prs}
+# Load files
+prs <- list(prs1 = read_excel("data/enrollment/288521-S01.xlsx", 
+                              sheet = "288521-S01.xlsx", 
+                              col_types = rep("text", 86)),
+            prs2 = read_excel("data/enrollment/298125-S01.xlsx", 
+                              sheet = "298125-S01.xlsx", 
+                              col_types = rep("text", 86)),
+            prs3 = read_excel("data/enrollment/SAT Fall 2015.xlsx", 
+                              sheet = "231720-S01.xlsx", 
+                              col_types = rep("text", 86)),
+            prs4 = read_excel("data/enrollment/SAT Winter 2016 TX.xlsx", 
+                              sheet = "248076-S01.xlsx", 
+                              col_types = rep("text", 86)),
+            prs5 = read_excel("data/enrollment/SAT WInter 2016.xlsx", 
+                              sheet = "248077-S01.xlsx", 
+                              col_types = rep("text", 86))) %>% 
+  # Combine multiple years and label data source
+  bind_rows(.id = "FILE") %>%
+  add_column(DATASET = "Prospects") %>% 
+  rename(LNAME = LAST_NAME,
+         FNAME = FIRST_NAME,
+         ADDRESS = STREET1,
+         CIPMJR = Major1) %>% 
+  filter(COUNTRY == "UNITED STATES" | COUNTRY == "United States") %>% 
+  select(-STREET2, -STREET3, -MI, -RUN_NO, -ORDER_NO, -COUNTRY, -PROVINCE, -TBD, -GPA, # Checked distros, not useful
+         -HOMESCHOOL, -LOW_SES, -HS_CLUSTER, -EN_CLUSTER, -NHRP, -PLTW, -NAME_SOURCE, -UPDATE_DATE, -Major2, -Major3,
+         -num_range("AP", 1:10), -num_range("SATSUB", 1:10)) %>% 
+  mutate(ZIP = str_sub(ZIP, 1, 5),
+         CIPMJR = str_split_fixed(CIPMJR, "\\.", 2)[,1], # Extract program family
+         STATUS = "Prospect",
+         DATASET = fct_recode(DATASET, # Combine factor levels
+                                "Prospects - Fall 2016" = "prs1",
+                                "Prospects - Fall 2016" = "prs2",
+                                "Prospects - Winter 2016" = "prs5",
+                                "Prospects - Winter 2016" = "prs4",
+                                "Prospects - Fall 2015" = "prs3"),
+         DATASET = factor(DATASET, levels = c("Prospects - Fall 2015", 
+                                              "Prospects - Winter 2016", 
+                                              "Prospects - Fall 2016")))
+
+prs <- distinct(prs, STUDENT_ID) # 4 duplicate records
+
+# Notes: have to change case of city names to all proper, also email addresses
+# extract age from DOB
+# combine fall 2015 and winter 2016
+
+```
+
+### Explore prospects data
+
+```{r}
+
+```
+
+
+## Combining student-level datasets
+
+```{r}
+enr <- bind_rows(app, inq, prs)
+write_csv(enr, "data/student_master.csv", na = "")
+```
+
+
+## Events data
+
+```{r events}
+# Events data (multiple tabs) -- Note no data for Dec 2015 or Dec 2017
+shts <- c("Sep 2015", "Oct 2015", "Nov 2015", "Jan 2016", "Feb 2016", "March 2016", "April 2016", "May 2016", "June 2016", "July 2016", "August 2016", "September 2016", "October 2016", "November 2016", "December 2016", "January 2017", "February 2017", "March 2017", "April 2017", "May 2017", "June 2017", "July 2017", "August 2017", "September 2017", "October 2017", "November 2017", "January 2018", "February 2018") 
+
+# Gather sheets
+events <- lapply(shts, function(x){
+  nm = paste(str_sub(x, 1, 3), str_sub(x, -4, -1), sep = "-")
+  read_excel("data/enrollment/Counselor Travel & Campus Visit Schedule.xlsx", 
+             sheet = x, col_types = rep("text", 8)) %>%
+    add_column(DATASET = nm)
+}) ; rm(shts)
+
+# Combine sheets
+events <- bind_rows() %>% filter(!is.na(events[,1]))
+
+```
+
+### Output files
+
+```{r}
+write_csv(app, "data/applicants.csv", na = "")
+write_csv(inq, "data/inquiries.csv", na = "")
+write_csv(prs, "data/prospects.csv", na = "")
+write_csv(events, "data/events.csv", na = "")
+```
+
