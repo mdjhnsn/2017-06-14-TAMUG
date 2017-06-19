@@ -3,10 +3,9 @@ title: "TAMUG Data Cleaning"
 author: 'Author: Michael Johnson'
 date: 'Last Modified: `r Sys.time()`'
 output:
-  word_document: default
-  html_notebook: default
-  pdf_document: default
   html_document: default
+  pdf_document: default
+  word_document: default
 ---
 
 ## Housekeeping 
@@ -19,7 +18,7 @@ rm(list = ls())
 library(tidyverse); library(readxl); library(forcats); library(stringr); library(RColorBrewer)
 
 # Set global options
-knitr::opts_knit$set(root.dir = "~/GitHub/2017-06-14-TAMUG/")
+# knitr::opts_knit$set(root.dir = "~/GitHub/2017-06-14-TAMUG/")
 knitr::opts_chunk$set(echo=TRUE, message=FALSE, error=FALSE, 
                       warning=FALSE, comment=NA,
                       fig.width = 6, fig.height = 4)
@@ -41,9 +40,7 @@ scl <- scale_fill_manual(values = c(
 
 ```
 
-## APPLICANTS
-
-### Load applicants data
+## Applicants
 
 ```{r applicants}
 # Load files
@@ -78,68 +75,7 @@ app <- distinct(app, TNUM, UIN, PIDM, .keep_all = T)
 
 ```
 
-### Explore applicants data
-
-```{r}
-# Year/status
-xtabs( ~ STATUS + YEAR, data = app)
-ggplot(app, aes(x = YEAR, fill = STATUS)) + geom_bar() + scl + thm
-
-# App number
-xtabs( ~ APNO + YEAR, data = app)
-ggplot(app, aes(x = YEAR, fill = APNO)) + geom_bar() + scl + thm
-
-# Decision
-xtabs( ~ DECISION + YEAR, data = app)
-ggplot(app, aes(x = YEAR, fill = DECISION)) + geom_bar() + thm
-
-# First enrolled term
-xtabs( ~ TERM + FIRST_ENROLL_TERM, data = app)
-ggplot(app, aes(x = FIRST_ENROLL_TERM, fill = TERM)) + geom_bar() + scl + thm
-
-# Last enrolled term
-xtabs( ~ TERM + LAST_ENROLL_TERM, data = app)
-ggplot(app, aes(x = YEAR, fill = LAST_ENROLL_TERM)) + geom_bar() + scl + thm
-
-# Application term
-xtabs( ~ TERM + YEAR, data = app)
-ggplot(app, aes(x = YEAR, fill = TERM)) + geom_bar() + scl + thm
-
-# Department
-xtabs( ~ APPDEPT + YEAR, data = app)
-ggplot(app, aes(x = YEAR, fill = APPDEPT)) + geom_bar() + scl + thm
-
-# Major
-xtabs( ~ APPMJR + YEAR, data = app)
-ggplot(app, aes(x = YEAR, fill = APPMJR)) + geom_bar() + scl + thm
-
-# Student type
-xtabs( ~ APPTYPE + YEAR, data = app)
-ggplot(app, aes(x = YEAR, fill = APPTYPE)) + geom_bar() + scl + thm
-
-# State
-xtabs( ~ STATE + YEAR, data = app)
-
-# State code?? - mostly same values, possibly ignore
-xtabs( ~ APSTCODE + YEAR, data = app)
-
-# SAT score
-ggplot(app, aes(HIGHEST_SAT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
-# ACT score
-ggplot(app, aes(HIGHEST_ACT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
-
-# Academic decile
-ggplot(app, aes(HS_DECILE, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
-
-# Academic characteristics - medians
-app %>% select(YEAR, HIGHEST_SAT, HIGHEST_ACT, HS_PERCENTILE) %>% group_by(YEAR) %>% summarise_all(median, na.rm = T)
-
-```
-
-
-## INQUIRIES
-
-### Load inquiries data
+## Inquiries
 
 ```{r inquiries}
 # Load files
@@ -169,37 +105,7 @@ inq <- distinct(inq, TNUM, UIN, .keep_all = T)
 
 ```
 
-### Explore inquiries data
-
-```{r}
-# Year
-xtabs( ~ YEAR, data = inq)
-ggplot(inq, aes(YEAR)) + geom_bar() + thm
-
-# Term
-xtabs( ~ TERM + YEAR, data = inq)
-ggplot(inq, aes(x = YEAR, fill = TERM)) + geom_bar() + thm + scl
-
-# State
-xtabs( ~ STATE + YEAR, data = inq)
-
-# Academic characteristics - medians
-inq %>% select(YEAR, HIGHEST_SAT, HIGHEST_ACT, HS_PERCENTILE) %>% group_by(YEAR) %>% summarise_all(median, na.rm = T)
-
-# SAT
-ggplot(inq, aes(HIGHEST_SAT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
-
-# ACT
-ggplot(inq, aes(HIGHEST_ACT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
-
-# High school percentile
-ggplot(inq, aes(HS_DECILE, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
-
-```
-
-## PROSPECTS
-
-### Load prospects data
+## Prospects
 
 ```{r prs}
 # Load files
@@ -250,20 +156,18 @@ prs <- distinct(prs, STUDENT_ID) # 4 duplicate records
 
 ```
 
-### Explore prospects data
+## Combining applicant and inquiry datasets
 
 ```{r}
+enr <- bind_rows(app, inq)
 
-```
+enr %>% group_by(TNUM) %>% count() %>% arrange(-n)
+dup1 <- enr %>% group_by(TNUM) %>% count() %>% filter(n>1) %>% left_join(enr, by = "TNUM") %>% filter(!is.na(TNUM))
+dup2 <- enr %>% group_by(UIN) %>% count() %>% filter(n>1) %>% left_join(enr, by = "UIN") %>% filter(!is.na(UIN))
+dup3 <- enr %>% group_by(PIDM) %>% count() %>% filter(n>1) %>% left_join(enr, by = "PIDM") %>% filter(!is.na(PIDM))
 
-
-## Combining student-level datasets
-
-```{r}
-enr <- bind_rows(app, inq, prs)
 write_csv(enr, "data/student_master.csv", na = "")
 ```
-
 
 ## Events data
 
@@ -277,7 +181,7 @@ events <- lapply(shts, function(x){
   read_excel("data/enrollment/Counselor Travel & Campus Visit Schedule.xlsx", 
              sheet = x, col_types = rep("text", 8)) %>%
     add_column(DATASET = nm)
-}) ; rm(shts)
+})
 
 # Combine sheets
 events <- bind_rows() %>% filter(!is.na(events[,1]))

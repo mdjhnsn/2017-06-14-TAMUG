@@ -1,0 +1,106 @@
+---
+title: "TAMUG Exploratory Data Analysis"
+author: 'Author: Michael Johnson'
+date: 'Last Modified: `r Sys.time()`'
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+# Load workspace
+
+```
+
+## APPLICANTS
+
+```{r}
+# Year/status
+xtabs( ~ STATUS + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = STATUS)) + geom_bar() + scl + thm
+
+# App number
+xtabs( ~ APNO + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = APNO)) + geom_bar() + scl + thm
+
+# Decision
+xtabs( ~ DECISION + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = DECISION)) + geom_bar() + thm
+
+# First enrolled term
+xtabs( ~ TERM + FIRST_ENROLL_TERM, data = app)
+ggplot(app, aes(x = FIRST_ENROLL_TERM, fill = TERM)) + geom_bar() + scl + thm
+
+# Last enrolled term
+xtabs( ~ TERM + LAST_ENROLL_TERM, data = app)
+ggplot(app, aes(x = YEAR, fill = LAST_ENROLL_TERM)) + geom_bar() + scl + thm
+
+# Application term
+xtabs( ~ TERM + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = TERM)) + geom_bar() + scl + thm
+
+# Department
+xtabs( ~ APPDEPT + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = APPDEPT)) + geom_bar() + scl + thm
+
+# Major
+xtabs( ~ APPMJR + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = APPMJR)) + geom_bar() + scl + thm
+
+# Student type
+xtabs( ~ APPTYPE + YEAR, data = app)
+ggplot(app, aes(x = YEAR, fill = APPTYPE)) + geom_bar() + scl + thm
+
+# State
+xtabs( ~ STATE + YEAR, data = app)
+
+# State code?? - mostly same values, possibly ignore
+xtabs( ~ APSTCODE + YEAR, data = app)
+
+# SAT score
+ggplot(app, aes(HIGHEST_SAT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+# ACT score
+ggplot(app, aes(HIGHEST_ACT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+# Academic decile
+ggplot(app, aes(HS_DECILE, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+# Academic characteristics - medians
+app %>% select(YEAR, HIGHEST_SAT, HIGHEST_ACT, HS_PERCENTILE) %>% group_by(YEAR) %>% summarise_all(median, na.rm = T)
+
+```
+
+## INQUIRIES
+
+```{r}
+# Year
+xtabs( ~ YEAR, data = inq)
+ggplot(inq, aes(YEAR)) + geom_bar() + thm
+
+# Term
+xtabs( ~ TERM + YEAR, data = inq)
+ggplot(inq, aes(x = YEAR, fill = TERM)) + geom_bar() + thm + scl
+
+# State
+xtabs( ~ STATE + YEAR, data = inq)
+
+# Academic characteristics - medians
+inq %>% select(YEAR, HIGHEST_SAT, HIGHEST_ACT, HS_PERCENTILE) %>% group_by(YEAR) %>% summarise_all(median, na.rm = T)
+
+# SAT
+ggplot(inq, aes(HIGHEST_SAT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+# ACT
+ggplot(inq, aes(HIGHEST_ACT, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+# High school percentile
+ggplot(inq, aes(HS_DECILE, fill = YEAR)) + geom_histogram(stat = "count") + thm + scl
+
+```
+
+## PROSPECTS
+
+```{r}
+
+```
